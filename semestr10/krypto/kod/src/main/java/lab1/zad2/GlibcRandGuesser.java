@@ -23,6 +23,7 @@ public class GlibcRandGuesser {
     }
     
     public static void main( String[] args ) throws Exception {
+        //Paste at least 32 values from glibc rand() function
         nextGlibcRandValue(
             1826437696,
             430377614,
