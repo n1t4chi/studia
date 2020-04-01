@@ -2,12 +2,13 @@
 set camperType;
 set cities;
 
-param availability{cities, camperType} /*integer*/;
+param availability{cities, camperType} integer;
 param distance{cities, cities} >=0;
 param transportCostPerDistance{camperType} > 0;
 
 /*camperCanBeReplacedBy(baseCamper,replacement) := whether replacement can be used instead of baseCamper*/
-param camperCanBeReplacedBy{camperType, camperType} /*binary*/;
+param camperCanBeReplacedBy{camperType, camperType} binary
+;
 
 
 /* variables */
@@ -19,7 +20,7 @@ var camperMovement{
     cities,
     camperType,
     camperType
-} >=0 /*integer*/
+} >=0 integer
 ;
 
 /* solution */
@@ -38,6 +39,13 @@ camperMovement[from, to, replacement, missing] * distance[from, to] * transportC
 s.t. enoughCampers{city in cities, camper in camperType} :
 /*base amount*/ availability[city, camper]
 /*incoming campers*/ + ( sum{from in cities, replacement in camperType} camperMovement[from,city,replacement,camper] * camperCanBeReplacedBy[camper, replacement] )
+/*outgoing campers*/ - ( sum{to in cities, requiredCamper in camperType} camperMovement[city,to,camper,requiredCamper] * camperCanBeReplacedBy[requiredCamper, camper] )
+>= 0
+;
+
+/*there are enough campers in city to send out */
+s.t. enoughCampers2{city in cities, camper in camperType} :
+/*base amount*/ max(0, availability[city, camper])
 /*outgoing campers*/ - ( sum{to in cities, requiredCamper in camperType} camperMovement[city,to,camper,requiredCamper] * camperCanBeReplacedBy[requiredCamper, camper] )
 >= 0
 ;
@@ -62,8 +70,12 @@ for {from in cities, to in cities, replacement in camperType, missing in camperT
 {
     printf if camperMovement[from, to, replacement, missing] > 0
         then "camperMovement[%s,%s,%s,%s]=%d\n"
-        else ""
-        ,from,to,replacement,missing,camperMovement[from, to, replacement, missing]
+        else "",
+        from,
+        to,
+        replacement,
+        missing,
+        camperMovement[from, to, replacement, missing]
     ;
 }
 
