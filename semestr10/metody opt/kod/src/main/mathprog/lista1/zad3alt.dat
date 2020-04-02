@@ -1,0 +1,84 @@
+data;
+
+set baseResources := br1 br2 br3;
+set wasteResources := wr1 wr2 wr3;
+
+set mainProducts := A B;
+set sideProducts := C D;
+
+
+param baseResourcesPrice :=
+    br1 2.1
+    br2 1.6
+    br3 1.0
+;
+param mainProductsPrice  :=
+    A 3
+    B 2.5
+;
+param sideProductsPrice  :=
+    C 0.6
+    D 0.5
+;
+
+
+param baseResourceLowerLimit := br1 2000  br2 3000   br3 4000;
+param baseResourceUpperLimit := br1 6000  br2 5000   br3 7000;
+
+param productionWaste default 0 :=
+[br1, A, wr1] 0.1
+[br1, B, wr1] 0.2
+[br2, A, wr2] 0.2
+[br2, B, wr2] 0.2
+[br3, A, wr3] 0.4
+[br3, B, wr3] 0.5
+;
+
+param mainProductResourceLowerLimit default 0 :=
+[A,br1] 0.2
+[A,br2] 0.4
+[B,br1] 0.1
+;
+param mainProductResourceUpperLimit default 1 :=
+[A,br3] 0.1
+[B,br3] 0.3
+;
+param sideProductBaseResourceRequirement default 0 :=
+[C,br1] 0.2
+[D,br2] 0.3
+;
+
+param utilisationCostsOfWasteResourceByProduct (tr):
+           A          B
+:=
+wr1        0.1        0.05
+wr2        0.1        0.05
+wr3        0.2        0.4
+;
+
+
+
+
+
+/*########################################################################*/
+/* DEBUG */
+
+param debug_buyResources := br1 6000 br2 5000 br3 4000;
+param debug_resourcesOnMain :=
+    [A,br1] 3306.6
+    [A,br2] 2976
+    [A,br3] 992
+    [B,br1] 2362.6
+    [B,br2] 2024
+    [B,br3] 3008
+;
+param debug_baseResorcesOnSide default 0 :=
+    [C,br1] 330.6
+;
+param debug_wasteResorcesOnSide default 0 :=
+    [C,wr1] 330.6
+    [C,wr2] 595.2
+    [C,wr3] 396.8
+;
+
+/*########################################################################*/
