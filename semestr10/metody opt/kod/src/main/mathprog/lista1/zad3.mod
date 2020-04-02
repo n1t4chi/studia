@@ -26,6 +26,8 @@ check {product in mainProducts, resource in baseResources} :
 ;
 param sideProductBaseResourceRequirement {sideProducts,baseResources} >=0;
 
+param sideProductWasteCanBeUsedFromMainProduction {sideProducts,mainProducts} >= 0;
+
 param wasteProductionFromBaseResourcesByProducts{mainProducts, baseResources, wasteResources} >= 0;
 
 param utilisationCostsOfWasteResourceByProduct{mainProducts, wasteResources} >= 0;
@@ -40,10 +42,11 @@ var producedSideProducts{sideProducts} >= 0;
 var usedBaseResourcesOnMainProducts{mainProducts, baseResources} >= 0;
 
 var actuallyUsedBaseResourcesOnMainProducts{mainProducts, baseResources} >= 0;
-var wasteResourcesFromProductionDetails{mainProducts, baseResources, wasteResources} >= 0;
-var wasteResourcesFromProduction{wasteResources} >= 0;
+var wasteResourcesByMainProductAndBaseResource{mainProducts, baseResources, wasteResources} >= 0;
+var wasteResourcesByMainProduct{mainProducts, wasteResources} >= 0;
 
 var usedBaseResourcesOnSideProducts{sideProducts, baseResources} >= 0;
+var usedWasteResourcesOnSideProductsFromMainProducts{sideProducts, mainProducts, wasteResources} >= 0;
 var usedWasteResourcesOnSideProducts{sideProducts, wasteResources} >= 0;
 var utilizedResources{mainProducts, wasteResources} >= 0;
 
@@ -74,16 +77,10 @@ maximize profit:
 ;
 
 /* constraints */
-s.t. resourcesBoughtLimit {resource in baseResources} :
+s.t. constraint_resourcesBoughtLimit {resource in baseResources} :
     baseResourceLowerLimit[resource] <= boughtResources[resource] <= baseResourceUpperLimit[resource]
 ;
-
-
-s.t. sideProductsRecipeConstraints {product in sideProducts, resource in baseResources} :
-    sideProductBaseResourceRequirement[product,resource] * producedSideProducts[product]  = usedBaseResourcesOnSideProducts[product,resource]
-;
-
-s.t. usageOfMainResources {resource in baseResources} :
+s.t. constraint_usageOfMainResources {resource in baseResources} :
     boughtResources[resource]
     >=
     (sum{product in mainProducts} usedBaseResourcesOnMainProducts[product,resource])
@@ -91,54 +88,76 @@ s.t. usageOfMainResources {resource in baseResources} :
     (sum{product in sideProducts} usedBaseResourcesOnSideProducts[product,resource])
 ;
 
-s.t. wasteProductionByProduct { product in mainProducts, resource in baseResources, waste in wasteResources } :
-    wasteResourcesFromProductionDetails[product, resource, waste]
+
+
+
+s.t. constraint_sideProductsRecipeConstraints {product in sideProducts, resource in baseResources} :
+    sideProductBaseResourceRequirement[product,resource] * producedSideProducts[product]  = usedBaseResourcesOnSideProducts[product,resource]
+;
+
+s.t. constraint_mainProductsRecipeConstraints_upper {product in mainProducts, resource in baseResources} :
+    actuallyUsedBaseResourcesOnMainProducts[product,resource] <=
+    mainProductResourceUpperLimit[product,resource] * producedMainProducts[product]
+;
+
+s.t. constraint_mainProductsRecipeConstraints_lower {product in mainProducts, resource in baseResources} :
+    mainProductResourceLowerLimit[product,resource] * producedMainProducts[product]  <=
+    actuallyUsedBaseResourcesOnMainProducts[product,resource]
+;
+
+
+s.t. constraint_wasteProduced_fullDetails { product in mainProducts, resource in baseResources, waste in wasteResources } :
+    wasteResourcesByMainProductAndBaseResource[product, resource, waste]
     = usedBaseResourcesOnMainProducts[product, resource] * productionWaste[resource,product,waste]
 ;
 
-s.t. wasteProduction {resource in wasteResources} :
-    wasteResourcesFromProduction[resource] =
-    sum{baseResource in baseResources, product in mainProducts}
-        usedBaseResourcesOnMainProducts[product, baseResource] * productionWaste[baseResource,product,resource]
+s.t. constraint_wasteProduced_byProduct { product in mainProducts, waste in wasteResources } :
+    wasteResourcesByMainProduct[product, waste] =
+    sum{resource in baseResources}
+        wasteResourcesByMainProductAndBaseResource[product,resource,waste]
 ;
 
-s.t. actualBaseProduction {product in mainProducts, resource in baseResources} :
+s.t. constraint_actualBaseUsageOnMainProducts {product in mainProducts, resource in baseResources} :
     actuallyUsedBaseResourcesOnMainProducts[product,resource] =
-     usedBaseResourcesOnMainProducts[product, resource] * (1 - sum{ wasteResource in wasteResources } ( productionWaste[resource,product,wasteResource] ) )
+        usedBaseResourcesOnMainProducts[product, resource] -
+        sum {waste in wasteResources}
+            wasteResourcesByMainProductAndBaseResource[product, resource, waste]
 ;
 
-
-s.t. constr_totalMainProductResourceUsage {product in mainProducts} :
+s.t. constraint_totalMainProductResourceUsage {product in mainProducts} :
     totalMainProductResourceUsage[product] =
     sum { resource in baseResources } usedBaseResourcesOnMainProducts[product, resource]
 ;
 
-s.t. mainProductsRecipeConstraints_upper {product in mainProducts, resource in baseResources} :
-    usedBaseResourcesOnMainProducts[product,resource] <=
-    mainProductResourceUpperLimit[product,resource] * producedMainProducts[product]
-;
-
-s.t. mainProductsRecipeConstraints_lower {product in mainProducts, resource in baseResources} :
-    mainProductResourceLowerLimit[product,resource] * producedMainProducts[product]  <=
-    usedBaseResourcesOnMainProducts[product,resource]
+s.t. constaint_blockInvalidWasteFromMainProductionOnSideProduction{product in mainProducts, sideProduct in sideProducts, waste in wasteResources}:
+    usedWasteResourcesOnSideProductsFromMainProducts[sideProduct, product, waste] =
+    usedWasteResourcesOnSideProductsFromMainProducts[sideProduct, product, waste]
+    *
+    sideProductWasteCanBeUsedFromMainProduction[sideProduct, product]
 ;
 
 
-s.t. utilisationOfWasteResources {resource in wasteResources} :
-    wasteResourcesFromProduction[resource]
+s.t. constraint_sumWasteResourcesOnSideProduction {product in sideProducts, waste in wasteResources} :
+    usedWasteResourcesOnSideProducts[product, waste] =
+    sum {mainProduct in mainProducts}
+    usedWasteResourcesOnSideProductsFromMainProducts[ product, mainProduct, waste]
+;
+
+s.t. constraint_utilisationOfWasteResources {product in mainProducts, resource in wasteResources} :
+    wasteResourcesByMainProduct[product, resource]
     =
-    ( sum{product in mainProducts} utilizedResources[product,resource] )
-    +
-    ( sum{product in sideProducts} usedWasteResourcesOnSideProducts[product,resource] )
+    utilizedResources[product,resource] +
+    sum{ sideProduct in sideProducts }
+        usedWasteResourcesOnSideProductsFromMainProducts[sideProduct,product,resource]
 ;
 
-s.t. mainProduction {product in mainProducts} :
+s.t. constraint_mainProduction {product in mainProducts} :
     producedMainProducts[product]
     =
     sum{resource in baseResources} ( actuallyUsedBaseResourcesOnMainProducts[product,resource] )
 ;
 
-s.t. sideProduction {product in sideProducts} :
+s.t. constraint_sideProduction {product in sideProducts} :
     producedSideProducts[product]
     =
     (sum{resource in baseResources}
@@ -146,7 +165,7 @@ s.t. sideProduction {product in sideProducts} :
     )
     +
     (sum{resource in wasteResources}
-        usedWasteResourcesOnSideProducts[product,resource])
+        usedWasteResourcesOnSideProducts[product, resource])
 ;
 
 solve;
@@ -183,30 +202,38 @@ for {product in mainProducts, resource in baseResources}
          ,
         mainProductResourceLowerLimit[product, resource] * 100,
         mainProductResourceUpperLimit[product, resource] * 100,
-        usedBaseResourcesOnMainProducts[product,resource] / boughtResources[resource] * 100
+        actuallyUsedBaseResourcesOnMainProducts[product,resource] / boughtResources[resource] * 100
     ;
     printf {waste in wasteResources}
         "\twasted[%s] = %.2fkg (%.2f%%)\n",
         waste,
-        wasteResourcesFromProductionDetails[product,resource,waste],
+        wasteResourcesByMainProductAndBaseResource[product,resource,waste],
         productionWaste[resource,product,waste]
     ;
 }
 printf "\nActual resource usage on main production\n";
 for {product in mainProducts, resource in baseResources}
 {
-    printf "actualBaseUsage[%s, %s]=%.2fkg\n",
+    printf "actualBaseUsage[%s, %s]=%.2fkg (%.3f%%) (min: %d%% max:%d%%) (total res usage %.2f%%)\n",
         product,
         resource,
+        actuallyUsedBaseResourcesOnMainProducts[product,resource],
         actuallyUsedBaseResourcesOnMainProducts[product,resource]
+            / max(1, (sum {r in baseResources} actuallyUsedBaseResourcesOnMainProducts[product,r] ) )
+             * 100
+         ,
+        mainProductResourceLowerLimit[product, resource] * 100,
+        mainProductResourceUpperLimit[product, resource] * 100,
+        actuallyUsedBaseResourcesOnMainProducts[product,resource] / boughtResources[resource] * 100
     ;
 }
 printf "\nWaste resources after main production:\n";
-for {resource in wasteResources}
+for {product in mainProducts, resource in wasteResources}
 {
-    printf "waste[%s]=%.2fkg\n",
+    printf "waste[%s,%s]=%.2fkg\n",
+        product,
         resource,
-        wasteResourcesFromProduction[resource]
+        wasteResourcesByMainProduct[product, resource]
     ;
 }
 
@@ -214,15 +241,14 @@ for {resource in wasteResources}
 printf "\nUsed base resources in side production:\n";
 for {product in sideProducts, resource in baseResources}
 {
-    printf "baseUsage[%s, %s]=%.2fkg (%.2f%%) (total %.2f%%)\n",
+    printf "baseUsage[%s, %s]=%.2fkg (%.2f%%, req: %.2f%%)\n",
         product,
         resource,
         usedBaseResourcesOnSideProducts[product, resource],
         usedBaseResourcesOnSideProducts[product, resource]
             / max(1, producedSideProducts[product])
-            * 100
-        ,
-        usedBaseResourcesOnSideProducts[product,resource] / boughtResources[resource] * 100
+            * 100,
+        sideProductBaseResourceRequirement[product, resource] * 100
     ;
 }
 
@@ -237,6 +263,16 @@ for {product in sideProducts, resource in wasteResources}
         usedWasteResourcesOnSideProducts[product, resource]
             / max(1, producedSideProducts[product])
             * 100
+    ;
+    for {mainProduct in mainProducts}
+    printf "\twasteUsage[%s, %s, %s]=%.2fkg (can be used? %s)\n",
+        product,
+        mainProduct,
+        resource,
+        usedWasteResourcesOnSideProductsFromMainProducts[product, mainProduct, resource],
+        if sideProductWasteCanBeUsedFromMainProduction[product,mainProduct] == 1
+            then "yes"
+            else "no"
     ;
 }
 

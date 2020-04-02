@@ -42,7 +42,6 @@ var usedBaseResourcesOnMainProducts{mainProducts, baseResources} >= 0;
 var actuallyUsedBaseResourcesOnMainProducts{mainProducts, baseResources} >= 0;
 var wasteResourcesByMainProductAndBaseResource{mainProducts, baseResources, wasteResources} >= 0;
 var wasteResourcesByMainProduct{mainProducts, wasteResources} >= 0;
-var wasteResourcesProduction{wasteResources} >= 0;
 
 var usedBaseResourcesOnSideProducts{sideProducts, baseResources} >= 0;
 var usedWasteResourcesOnSideProducts{sideProducts, wasteResources} >= 0;
@@ -120,12 +119,6 @@ s.t. constraint_wasteProduced_byProduct { product in mainProducts, waste in wast
     wasteResourcesByMainProduct[product, waste] =
     sum{resource in baseResources}
         wasteResourcesByMainProductAndBaseResource[product,resource,waste]
-;
-
-s.t. constraint_wasteProduced {waste in wasteResources} :
-    wasteResourcesProduction[waste] =
-    sum{product in mainProducts}
-        wasteResourcesByMainProduct[product,waste]
 ;
 
 s.t. constraint_actualBaseUsageOnMainProducts {product in mainProducts, resource in baseResources} :

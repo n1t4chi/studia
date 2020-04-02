@@ -48,6 +48,10 @@ param sideProductBaseResourceRequirement default 0 :=
 [D,br2] 0.3
 ;
 
+param sideProductWasteCanBeUsedFromMainProduction default 0 :=
+[C,A] 1
+[D,B] 1
+;
 
 
 param utilisationCostsOfWasteResourceByProduct (tr):
