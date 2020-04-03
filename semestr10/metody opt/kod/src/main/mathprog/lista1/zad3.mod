@@ -38,7 +38,6 @@ var boughtResources{baseResources} >= 0;
 var producedMainProducts{mainProducts} >= 0;
 var producedSideProducts{sideProducts} >= 0;
 
-
 var usedBaseResourcesOnMainProducts{mainProducts, baseResources} >= 0;
 
 var actuallyUsedBaseResourcesOnMainProducts{mainProducts, baseResources} >= 0;
@@ -50,7 +49,7 @@ var usedWasteResourcesOnSideProductsFromMainProducts{sideProducts, mainProducts,
 var usedWasteResourcesOnSideProducts{sideProducts, wasteResources} >= 0;
 var utilizedResources{mainProducts, wasteResources} >= 0;
 
-var totalMainProductResourceUsage{mainProducts} >= 0;
+var resourcesLeft { resource in baseResources } >=0;
 
 /* solution */
 maximize profit:
@@ -81,14 +80,19 @@ s.t. constraint_resourcesBoughtLimit {resource in baseResources} :
     baseResourceLowerLimit[resource] <= boughtResources[resource] <= baseResourceUpperLimit[resource]
 ;
 s.t. constraint_usageOfMainResources {resource in baseResources} :
-    boughtResources[resource]
-    >=
-    (sum{product in mainProducts} usedBaseResourcesOnMainProducts[product,resource])
-    +
-    (sum{product in sideProducts} usedBaseResourcesOnSideProducts[product,resource])
+    /*switch on/off if the base resources have to be used all up*/
+    resourcesLeft[resource] = 0
+    /*
+    resourcesLeft[resource] >= 0
+    */
 ;
 
-
+s.t. constraint_setUpResourcesLeft {resource in baseResources} :
+    resourcesLeft[resource] =
+    boughtResources[resource]
+     -(sum{product in mainProducts} usedBaseResourcesOnMainProducts[product,resource])
+     -(sum{product in sideProducts} usedBaseResourcesOnSideProducts[product,resource])
+;
 
 
 s.t. constraint_sideProductsRecipeConstraints {product in sideProducts, resource in baseResources} :
@@ -122,11 +126,6 @@ s.t. constraint_actualBaseUsageOnMainProducts {product in mainProducts, resource
         usedBaseResourcesOnMainProducts[product, resource] -
         sum {waste in wasteResources}
             wasteResourcesByMainProductAndBaseResource[product, resource, waste]
-;
-
-s.t. constraint_totalMainProductResourceUsage {product in mainProducts} :
-    totalMainProductResourceUsage[product] =
-    sum { resource in baseResources } usedBaseResourcesOnMainProducts[product, resource]
 ;
 
 s.t. constaint_blockInvalidWasteFromMainProductionOnSideProduction{product in mainProducts, sideProduct in sideProducts, waste in wasteResources}:
@@ -176,7 +175,7 @@ solve;
 printf "\nBought resources:\n";
 for {resource in baseResources }
 {
-    printf "bought[%s]=%.2fkg (-$%.2f, $%.2f/kg) (min: %d max:%d)\n",
+    printf "bought[%s]=%.2fkg (cost: -$%.2f, $%.2f/kg) (min: %d max:%d)\n",
         resource,
         boughtResources[resource],
         boughtResources[resource] * baseResourcesPrice[resource],
@@ -192,17 +191,11 @@ printf "Total cost of buying resources: $%.4f\n",
 printf "\nUsed resources on main production:\n";
 for {product in mainProducts, resource in baseResources}
 {
-    printf "baseUsage[%s, %s]=%.2fkg (%.3f%%) (min: %d%% max:%d%%) (total %.2f%%)\n",
+    printf "baseUsage[%s, %s]=%.2fkg (total res. usage: %.2f%%)\n",
         product,
         resource,
         usedBaseResourcesOnMainProducts[product,resource],
-        usedBaseResourcesOnMainProducts[product,resource]
-            / max(1, (sum {r in baseResources} usedBaseResourcesOnMainProducts[product,r] ) )
-             * 100
-         ,
-        mainProductResourceLowerLimit[product, resource] * 100,
-        mainProductResourceUpperLimit[product, resource] * 100,
-        actuallyUsedBaseResourcesOnMainProducts[product,resource] / boughtResources[resource] * 100
+        usedBaseResourcesOnMainProducts[product,resource] / boughtResources[resource] * 100
     ;
     printf {waste in wasteResources}
         "\twasted[%s] = %.2fkg (%.2f%%)\n",
@@ -214,7 +207,7 @@ for {product in mainProducts, resource in baseResources}
 printf "\nActual resource usage on main production\n";
 for {product in mainProducts, resource in baseResources}
 {
-    printf "actualBaseUsage[%s, %s]=%.2fkg (%.3f%%) (min: %d%% max:%d%%) (total res usage %.2f%%)\n",
+    printf "actualBaseUsage[%s, %s]=%.2fkg (prod. composition: %.3f%%, min: %d%%, max:%d%%)\n",
         product,
         resource,
         actuallyUsedBaseResourcesOnMainProducts[product,resource],
@@ -223,8 +216,7 @@ for {product in mainProducts, resource in baseResources}
              * 100
          ,
         mainProductResourceLowerLimit[product, resource] * 100,
-        mainProductResourceUpperLimit[product, resource] * 100,
-        actuallyUsedBaseResourcesOnMainProducts[product,resource] / boughtResources[resource] * 100
+        mainProductResourceUpperLimit[product, resource] * 100
     ;
 }
 printf "\nWaste resources after main production:\n";
@@ -241,7 +233,7 @@ for {product in mainProducts, resource in wasteResources}
 printf "\nUsed base resources in side production:\n";
 for {product in sideProducts, resource in baseResources}
 {
-    printf "baseUsage[%s, %s]=%.2fkg (%.2f%%, req: %.2f%%)\n",
+    printf "baseUsage[%s, %s]=%.2fkg (prod. composition: %.2f%%, req: %.2f%%)\n",
         product,
         resource,
         usedBaseResourcesOnSideProducts[product, resource],
@@ -256,7 +248,7 @@ for {product in sideProducts, resource in baseResources}
 printf "\nUsed waste resources in side production:\n";
 for {product in sideProducts, resource in wasteResources}
 {
-    printf "wasteUsage[%s, %s]=%.2fkg (%.2f%%)\n",
+    printf "wasteUsage[%s, %s]=%.2fkg (prod. composition: %.2f%%)\n",
         product,
         resource,
         usedWasteResourcesOnSideProducts[product, resource],
@@ -279,7 +271,7 @@ for {product in sideProducts, resource in wasteResources}
 printf "\nActual Production:\n";
 for {product in mainProducts}
 {
-    printf "produced[%s]=%.2fkg (+$%.2f, $%.2f/kg)\n",
+    printf "produced[%s]=%.2fkg (income +$%.2f, $%.2f/kg)\n",
         product,
         producedMainProducts[product],
         producedMainProducts[product]*mainProductsPrice[product],
@@ -293,7 +285,7 @@ printf "Total income from side production: $%.4f\n",
 printf "\nSide Production:\n";
 for {product in sideProducts}
 {
-    printf "produced[%s]=%.2fkg (+$%.2f, $%.2f/kg)\n",
+    printf "produced[%s]=%.2fkg (income +$%.2f, $%.2f/kg)\n",
         product,
         producedSideProducts[product],
         producedSideProducts[product]*sideProductsPrice[product],
@@ -304,11 +296,19 @@ printf "Total income from side production: $%.4f\n",
     sum{product in sideProducts} producedSideProducts[product]*sideProductsPrice[product]
 ;
 
+printf "\nBase resources left after production:\n";
+for {resource in baseResources}
+{
+    printf "unused[%s]=%.2fkg\n",
+        resource,
+        resourcesLeft[resource]
+    ;
+}
 
 printf "\nUtilised resources by production:\n";
 for {product in mainProducts, resource in wasteResources}
 {
-    printf "utilised[%s, %s]=%.2fkg (-$%.2f, $%.2f/kg)\n",
+    printf "utilised[%s, %s]=%.2fkg (cost -$%.2f, $%.2f/kg)\n",
         product,
         resource,
         utilizedResources[product, resource],
@@ -321,3 +321,4 @@ printf "Total utilisation cost: $%.4f\n\n",
         utilizedResources[product, resource] * utilisationCostsOfWasteResourceByProduct[product, resource]
 ;
 printf "Total profit: $%.4f\n\n", profit;
+
