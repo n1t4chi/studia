@@ -38,7 +38,7 @@ public class EncryptionEngine {
             .range( 0, bytes.length )
             .mapToObj( i -> bytes[ i ] )
             .map( String::valueOf )
-            .collect( Collectors.joining( "," ) );
+            .collect( Collectors.joining( ",", "[", "]" ) );
     }
     
     public static EncryptionEngine get(
@@ -81,18 +81,10 @@ public class EncryptionEngine {
         this.usesGcm = usesGcm;
     }
     
-    public Challenge challenge( String message1, String message2 ) {
+    public Challenge challenge( byte[] message1, byte[] message2 ) {
         var messageIndex = ThreadLocalRandom.current().nextInt( 2 );
         var message = List.of( message1, message2 ).get( messageIndex );
         return new Challenge( encrypt( message ), message, messageIndex+1 );
-    }
-    
-    public List< Cryptogram > encrypt( List< String > messages ) {
-        return messages.stream()
-            .map( String::getBytes )
-            .map( this::encrypt )
-            .collect( Collectors.toList() )
-        ;
     }
     
     public Cryptogram encrypt( String message ) {

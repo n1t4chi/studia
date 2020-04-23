@@ -39,8 +39,8 @@ public class Runner {
             printHelp();
             throw new IllegalArgumentException( "Invalid encryption mode! " + args[ modeOfEncryptionIndex ] );
         }
-        var keyStore = EncryptionEngine.getKeyStore( keyStoreFile, getPassword( keyStorePasswordFile, "key store") );
-        var key = EncryptionEngine.getKey( keyStore, keyIdentifier, getPassword( keyPasswordFile, "key store") );
+        var keyStore = EncryptionEngine.getKeyStore( keyStoreFile, getPassword( keyStorePasswordFile ) );
+        var key = EncryptionEngine.getKey( keyStore, keyIdentifier, getPassword( keyPasswordFile ) );
         var engine = EncryptionEngine.get(
             encryptionMode.get(),
             key,
@@ -57,14 +57,16 @@ public class Runner {
     private static void startChallenge( EncryptionEngine engine ) {
         var reader = new BufferedReader( new InputStreamReader( System.in ) );
         System.out.println( "Challenge mode. Enter two messages and guess which one was encrypted." );
+        System.out.println( "If you want to put specific non printable characters, then put byte values (from -128 to 127) in square brackets, separated by comma." );
+        System.out.println( "For example: [0,0,0,-1,-128,1,127]" );
         System.out.println( "First message:" );
-        String first = reader.readLine();
-        System.out.println( "Send message:" );
-        String second = reader.readLine();
+        var first = getBytes( reader.readLine() );
+        System.out.println( "Second message:" );
+        var second = getBytes( reader.readLine() );
         Challenge challenge = engine.challenge( first, second );
-        System.out.println( "Cryptogram:\n" +
-            EncryptionEngine.bytesToString( challenge.getCryptogram().getCipherText() )
-        );
+        Cryptogram cryptogram = challenge.getCryptogram();
+        System.out.println( "Cryptogram:\n" + EncryptionEngine.bytesToString( cryptogram.getCipherText() ) );
+        System.out.println( "Iv:\n" + EncryptionEngine.bytesToString( cryptogram.getIv() ) );
         System.out.println( "Guess which message is this? (1/2)" );
         String line;
         while( !is1or2(line = reader.readLine()) ) {
@@ -85,16 +87,38 @@ public class Runner {
     @SneakyThrows
     private static void startOracle( EncryptionEngine engine ) {
         var reader = new BufferedReader( new InputStreamReader( System.in ) );
-        System.out.println( "Oracle mode. Type messages and receive cryptograms for each, empty message quits." );
+        System.out.println( "Oracle mode. Type messages and receive cryptograms + IV for each, empty message quits." );
+        System.out.println( "If you want to put specific non printable characters, then put byte values (from -128 to 127) in square brackets, separated by comma." );
+        System.out.println( "For example: [0,0,0,-1,-128,1,127]" );
         while ( true ) {
             System.out.println( "Type message:" );
             var line = reader.readLine();
             if( line == null || line.isEmpty() ) break;
-            System.out.println(
-                EncryptionEngine.bytesToString( engine.encrypt( line ).getCipherText() )
-            );
+            
+            Cryptogram cryptogram = engine.encrypt( getBytes( line ) );
+            System.out.println( "Cryptogram:\n" + EncryptionEngine.bytesToString( cryptogram.getCipherText() ) );
+            System.out.println( "IV:\n" + EncryptionEngine.bytesToString( cryptogram.getIv() ) );
         }
         System.out.println( "Quitting." );
+    }
+    
+    private static byte[] getBytes( String line ) {
+        if( line.startsWith( "[" ) && line.endsWith( "]" ) )
+        {
+            int[] ints = Arrays.stream(
+                line.substring( 1, line.length()-1 )
+                .split( "\s*,\s*" )
+            )
+                .mapToInt( Integer::parseInt )
+                .toArray()
+            ;
+            byte[] bytes = new byte[ints.length];
+            for ( int i = 0; i < bytes.length; i++ ) {
+                bytes[i] = ( byte ) ints[i];
+            }
+            return bytes;
+        }
+        return line.getBytes();
     }
     
     private static File getFile( String fileName ) {
@@ -113,12 +137,10 @@ public class Runner {
     }
     
     @SneakyThrows
-    private static char[] getPassword( File passwordFile, String name ) {
-        try( Reader reader = new FileReader( passwordFile ) )
+    private static char[] getPassword( File passwordFile ) {
+        try( var reader = new BufferedReader( new FileReader( passwordFile ) ) )
         {
-            char[] buffer = new char[512];
-            int charsRead = reader.read( buffer );
-            return Arrays.copyOf( buffer, charsRead );
+            return reader.readLine().toCharArray();
         }
     }
     

@@ -13,14 +13,16 @@ public class FileBasedBotchedSecureRandomSpi extends
 {
     private static final String fileName = "iv.txt";
     
-    public FileBasedBotchedSecureRandomSpi() {
-        load();
-    }
-    
     @Override
     protected void engineSetSeed( byte[] iv ) {
         super.engineSetSeed( iv );
         save();
+    }
+    
+    @Override
+    protected void engineNextBytes( byte[] bytes ) {
+        load();
+        super.engineNextBytes( bytes );
     }
     
     @SneakyThrows
