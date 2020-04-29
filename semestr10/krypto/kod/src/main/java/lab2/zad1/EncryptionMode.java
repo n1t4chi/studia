@@ -5,8 +5,8 @@ import java.util.Optional;
 
 public enum EncryptionMode {
     aes_cbc( "AES_128/CBC/NOPADDING", "CBC"),
-    aes_ofb( "AES_128/OFB/NOPADDING", "CTR" ),
-    aes_ctr( "AES_128/GCM/NOPADDING", "CBC" ),
+    aes_ofb( "AES_128/OFB/NOPADDING", "OFB" ),
+    aes_ctr( "AES_128/GCM/NOPADDING", "CTR" ),
     ;
     
     public static Optional<EncryptionMode> get( String name )
@@ -17,8 +17,8 @@ public enum EncryptionMode {
         ;
     }
     
-    private String algorithmName;
-    private String parameterName;
+    private final String algorithmName;
+    private final String parameterName;
     
     EncryptionMode( String algorithmName, String parameterName ) {
         
@@ -31,6 +31,10 @@ public enum EncryptionMode {
     }
     
     String getParameterName() {
+        return parameterName;
+    }
+    
+    String toHelpString() {
         return parameterName;
     }
 }
