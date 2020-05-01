@@ -54,31 +54,31 @@ function solve(
     #main variables
 
     #actualMemoryUsage within constraints
-    @variable(model, 0 <= actualMemoryUsage <= memoryLimit)
+    @variable(model, 0 <= actualMemoryUsage <= memoryLimit) #done
 
     #use: functions -> library ∪ {none(0)} - determines what library to use for each function that needs to be done, none if does not to be done
-    @variable(model, 0 <= use[functions] <= libCount, Int)
+    @variable(model, 0 <= use[functions] <= libCount, Int) #done
 
-    #time usage per used function
-    @variable(model, timeUsage[functions] >=0 )
+    #time usage per used functionfunctions
+    @variable(model, timeUsage[functions] >=0 ) #done
 
     #memory usage per used function
-    @variable(model, memUsage[functions] >=0 )
-    @constraint(model, actualMemoryUsage == sum(memUsage) )
+    @variable(model, memUsage[functions] >=0 ) #done
+    @constraint(model, actualMemoryUsage == sum(memUsage) ) #done
 
     #minimise r
-    @objective(model,Min, sum(timeUsage))
+    @objective(model,Min, sum(timeUsage) ) #done
 
     #helper variables and constrinats
-    @variable(model, 0 <= mapUsage[functions,libraries] <= 1, Int )
-    @variable(model, 0 <= mapUsageVal[functions,libraries] <= libCount, Int )
-    @variable(model, mapTimeUsageVal[functions,libraries] >= 0 )
-    @variable(model, mapMemUsageVal[functions,libraries] >= 0 )
+    @variable(model, 0 <= mapUsage[functions,libraries] <= 1, Int ) #done
+    @variable(model, 0 <= mapUsageVal[functions,libraries] <= libCount, Int ) #done
+    @variable(model, mapTimeUsageVal[functions,libraries] >= 0 ) #done
+    @variable(model, mapMemUsageVal[functions,libraries] >= 0 ) #done
     for func=functions
         for lib=libraries
-            @constraint(model, mapUsageVal[func,lib] == mapUsage[func,lib] * lib )
-            @constraint(model, mapTimeUsageVal[func,lib] == mapUsage[func,lib] * time[lib,func] )
-            @constraint(model, mapMemUsageVal[func,lib] == mapUsage[func,lib] * memory[lib,func] )
+            @constraint(model, mapUsageVal[func,lib] == mapUsage[func,lib] * lib ) #done
+            @constraint(model, mapTimeUsageVal[func,lib] == mapUsage[func,lib] * time[lib,func] ) #done
+            @constraint(model, mapMemUsageVal[func,lib] == mapUsage[func,lib] * memory[lib,func] ) #done
         end
 
         @constraint(model, use[func] == sum( mapUsageVal[func,lib] for lib in libraries ) )
@@ -86,9 +86,9 @@ function solve(
         @constraint(model, memUsage[func] == sum( mapMemUsageVal[func,lib] for lib in libraries ) )
 
         if func in functionsToDo
-            @constraint(model, use[func] >= 1 )
+            @constraint(model, use[func] >= 1 ) #done
         else
-            @constraint(model, use[func] == 0 )
+            @constraint(model, use[func] == 0 ) #done
         end
     end
 
@@ -104,6 +104,7 @@ function solve(
     #print(model)
 
     if status == MOI.OPTIMAL
+        #=
         _mapUsage=value.(mapUsage)
         _mapUsageVal=value.(mapUsageVal)
         _mapTimeUsageVal=value.(mapTimeUsageVal)
@@ -123,7 +124,7 @@ function solve(
             println( "timeUsage[",func,"]=",_timeUsage[func] );
             println( "memUsage[",func,"]=",_memUsage[func] );
         end
-
+        =#
         return status, Result(
             #params
             collect(libraries),
@@ -149,11 +150,19 @@ function log( status, result )
         println("Solution: " );
         for i=result.functions
             if i in result.functionsToDo
-                print("\t");
+                print("\trequired");
             else
-                print("\t[disabled]");
+                print("\tnot required");
             end
-            println("solve function ", result.functions[i], " with library: ", result.useLibPerFunc[i], " (time:",result.timeUsage[i],", memory:",result.memUsage[i],")" );
+            if result.useLibPerFunc[i] == 0
+                if result.timeUsage[i] == 0 && result.memUsage[i] == 0
+                    println(" function ", result.functions[i], " should not be solved" );
+                else
+                    println(" function ", result.functions[i], " should not be solved but for some reason uses time: ", result.timeUsage[i], " or memory: ", result.memUsage[i] );
+                end
+            else
+                println(" function ", result.functions[i], " should be solved by library ", result.useLibPerFunc[i], " in time: ",result.timeUsage[i]," and memory: ",result.memUsage[i] );
+            end
         end
         println("Time cost: ", result.timeCost );
         println("Memory usage: ", result.memoryCost, "(max:",result.memoryLimit,")" );
@@ -220,18 +229,18 @@ solveAndLog(
     4.
 );
 
-println("Expected: (f1,l3)(f3,l1)(f4,l1) m=12 t=17");
+println("Expected: (f1,l3)(f3,l1)(f4,l1) m=8 t=10");
 solveAndLog(
     [
-        1. 2. 3. 4.;
-        2. 3. 4. 5.;
-        3. 4. 5. 6.;
+        1. 12. 2. 3.;
+        2. 11. 3. 4.;
+        3. 1. 4. 5.;
     ],
     [
-        8. 7. 6. 5.;
-        7. 6. 5. 4.;
-        6. 5. 4. 3.
+        5. 1. 4. 3.;
+        4. 11. 3. 2.;
+        3. 12. 2. 1.
     ],
     [ 1, 3, 4 ],
-    10.
+    8.
 );
